@@ -14,8 +14,6 @@ const (
 	eAry
 )
 
-const LeftBrace byte = 91 // []byte("[")
-
 type lazyNode struct {
 	raw   *json.RawMessage
 	doc   partialDoc
@@ -264,6 +262,10 @@ func findObject(pd *container, path string) (container, string) {
 
 	split := strings.Split(path, "/")
 
+	if len(split) < 2 {
+		return nil, ""
+	}
+
 	parts := split[1 : len(split)-1]
 
 	key := split[len(split)-1]
@@ -444,6 +446,11 @@ func (p Patch) replace(doc *container, op operation) error {
 		return fmt.Errorf("jsonpatch replace operation does not apply: doc is missing path: %s", path)
 	}
 
+	val, ok := con.get(key)
+	if val == nil || ok != nil {
+		return fmt.Errorf("jsonpatch replace operation does not apply: doc is missing key: %s", path)
+	}
+
 	return con.set(key, op.value())
 }
 
@@ -495,9 +502,8 @@ func (p Patch) test(doc *container, op operation) error {
 	if val == nil {
 		if op.value().raw == nil {
 			return nil
-		} else {
-			return fmt.Errorf("Testing value %s failed", path)
 		}
+		return fmt.Errorf("Testing value %s failed", path)
 	}
 
 	if val.equal(op.value()) {
@@ -505,6 +511,31 @@ func (p Patch) test(doc *container, op operation) error {
 	}
 
 	return fmt.Errorf("Testing value %s failed", path)
+}
+
+func (p Patch) copy(doc *container, op operation) error {
+	from := op.from()
+
+	con, key := findObject(doc, from)
+
+	if con == nil {
+		return fmt.Errorf("jsonpatch copy operation does not apply: doc is missing from path: %s", from)
+	}
+
+	val, err := con.get(key)
+	if err != nil {
+		return err
+	}
+
+	path := op.path()
+
+	con, key = findObject(doc, path)
+
+	if con == nil {
+		return fmt.Errorf("jsonpatch copy operation does not apply: doc is missing destination path: %s", path)
+	}
+
+	return con.set(key, val)
 }
 
 // Equal indicates if 2 JSON documents have the same structural equality.
@@ -543,7 +574,7 @@ func (p Patch) Apply(doc []byte) ([]byte, error) {
 // document indented.
 func (p Patch) ApplyIndent(doc []byte, indent string) ([]byte, error) {
 	var pd container
-	if (doc[0] == LeftBrace) {
+	if doc[0] == '[' {
 		pd = &partialArray{}
 	} else {
 		pd = &partialDoc{}
@@ -569,6 +600,8 @@ func (p Patch) ApplyIndent(doc []byte, indent string) ([]byte, error) {
 			err = p.move(&pd, op)
 		case "test":
 			err = p.test(&pd, op)
+		case "copy":
+			err = p.copy(&pd, op)
 		default:
 			err = fmt.Errorf("Unexpected kind: %s", op.kind())
 		}

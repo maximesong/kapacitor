@@ -385,6 +385,14 @@ func newAlertNode(et *ExecutingTask, n *pipeline.AlertNode, l *log.Logger) (an *
 		an.handlers = append(an.handlers, h)
 	}
 
+	for _, m := range n.MQTTHandlers {
+		c := et.tm.MQTTService.DefaultHandlerConfig()
+		if m.Topic != "" {
+			c.Topic = m.Topic
+		}
+		h := et.tm.MQTTService.Handler(c, l)
+		an.handlers = append(an.handlers, h)
+	}
 	// Parse level expressions
 	an.levels = make([]stateful.Expression, alert.Critical+1)
 	an.scopePools = make([]stateful.ScopePool, alert.Critical+1)
