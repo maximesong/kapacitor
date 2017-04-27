@@ -1,7 +1,9 @@
 package mqtt
 
 import (
+	"fmt"
 	"log"
+	"sync/atomic"
 
 	pahomqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/influxdata/kapacitor/alert"
@@ -10,33 +12,42 @@ import (
 type QOSLevel byte
 
 const (
-	LEVEL0 QOSLevel = iota
-	LEVEL1
-	LEVEL2
+	// best effort delivery. "fire and forget"
+	ATMOSTONCE QOSLevel = iota
+	// guarantees delivery to at least one receiver. May deliver multiple times.
+	ATLEASTONCE
+	// guarantees delivery only once. Safest and slowest.
+	EXACTLYONCE
 )
 
 type Service struct {
-	Config Config
 	Logger *log.Logger
 
-	client pahomqtt.Client
-	token  pahomqtt.Token
+	configValue atomic.Value
+	client      pahomqtt.Client
+	token       pahomqtt.Token
 }
 
 func NewService(c Config, l *log.Logger) *Service {
-	return &Service{
-		Config: c,
+	s := &Service{
 		Logger: l,
 	}
+	s.configValue.Store(c)
+	return s
+}
+
+func (s *Service) config() Config {
+	return s.configValue.Load().(Config)
 }
 
 // TODO(timraymond): improve logging here and in Close
 func (s *Service) Open() error {
+	c := s.config()
 	opts := pahomqtt.NewClientOptions()
-	opts.AddBroker(s.Config.Broker())
-	opts.SetClientID(s.Config.ClientID) // TODO(timraymond): should we provide a random one?
-	opts.SetUsername(s.Config.Username)
-	opts.SetPassword(s.Config.Password)
+	opts.AddBroker(c.Broker())
+	opts.SetClientID(c.ClientID) // TODO(timraymond): should we provide a random one?
+	opts.SetUsername(c.Username)
+	opts.SetPassword(c.Password)
 	opts.SetCleanSession(false) // wtf is this? Why does it default to false?
 
 	s.client = pahomqtt.NewClient(opts)
@@ -45,10 +56,10 @@ func (s *Service) Open() error {
 	s.token.Wait()
 
 	if err := s.token.Error(); err != nil {
-		s.Logger.Println("E! Error connecting to MQTT broker at", s.Config.Broker(), "err:", err) //TODO(timraymond): put a legit error in
+		s.Logger.Println("E! Error connecting to MQTT broker at", c.Broker(), "err:", err) //TODO(timraymond): put a legit error in
 		return err
 	}
-	s.Logger.Println("I! Connected to MQTT Broker at", s.Config.Broker())
+	s.Logger.Println("I! Connected to MQTT Broker at", c.Broker())
 	return nil
 
 }
@@ -65,6 +76,14 @@ func (s *Service) Alert(qos QOSLevel, topic, message string) error {
 }
 
 func (s *Service) Update(newConfig []interface{}) error {
+	if l := len(newConfig); l != 1 {
+		return fmt.Errorf("expected only one new config object, got %d", l)
+	}
+	if c, ok := newConfig[0].(Config); !ok {
+		return fmt.Errorf("expected config object to be of type %T, got %T", c, newConfig[0])
+	} else {
+		s.configValue.Store(c)
+	}
 	return nil
 }
 
@@ -94,19 +113,32 @@ func (h *handler) Handle(event alert.Event) {
 }
 
 func (s *Service) DefaultHandlerConfig() HandlerConfig {
+	c := s.config()
 	return HandlerConfig{
-		Topic: "Barnacles",
-		QOS:   LEVEL2,
+		Topic: c.DefaultTopic,
+		QOS:   c.DefaultQOS,
 	}
 }
 
-type testOptions struct{}
+type testOptions struct {
+	Topic   string   `json:"topic"`
+	Message string   `json:"message"`
+	QOS     QOSLevel `json:"qos"`
+}
 
 func (s *Service) TestOptions() interface{} {
-	return "foo"
+	c := s.config()
+	return &testOptions{
+		Topic:   c.DefaultTopic,
+		QOS:     c.DefaultQOS,
+		Message: "test MQTT message",
+	}
 }
 
 func (s *Service) Test(o interface{}) error {
-	// stubbed out for POC
-	return nil
+	options, ok := o.(*testOptions)
+	if !ok {
+		return fmt.Errorf("unexpected options type %T", options)
+	}
+	return s.Alert(options.QOS, options.Topic, options.Message)
 }
