@@ -47,6 +47,8 @@ func (s *Service) config() Config {
 
 // TODO(timraymond): improve logging here and in Close
 func (s *Service) Open() error {
+	s.Logger.Println("I! Starting MQTT service")
+
 	c := s.config()
 	opts := pahomqtt.NewClientOptions()
 	opts.AddBroker(c.Broker())
