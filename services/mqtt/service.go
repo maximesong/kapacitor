@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"sync/atomic"
+	"time"
 
 	pahomqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/influxdata/kapacitor/alert"
@@ -19,6 +20,10 @@ const (
 	// guarantees delivery only once. Safest and slowest.
 	EXACTLYONCE
 )
+
+// DEFAULT_QUIESCE_TIMEOUT is the duration the client will wait for outstanding
+// messages to be published before forcing a disconnection
+const DEFAULT_QUIESCE_TIMEOUT time.Duration = 250 * time.Millisecond
 
 type Service struct {
 	Logger *log.Logger
@@ -65,7 +70,7 @@ func (s *Service) Open() error {
 }
 
 func (s *Service) Close() error {
-	s.client.Disconnect(250) // what is this code?
+	s.client.Disconnect(uint(DEFAULT_QUIESCE_TIMEOUT / time.Millisecond))
 	s.Logger.Println("I! MQTT Client Disconnected")
 	return nil
 }
