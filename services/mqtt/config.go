@@ -16,6 +16,9 @@ type Config struct {
 	ClientID string `toml:"client_id" override:"client_id"`
 	Username string `toml:"username" override:"username"`
 	Password string `toml:"password" override:"password"`
+
+	DefaultTopic string   `toml:"default_topic" override:"default_topic"`
+	DefaultQOS   QOSLevel `toml:"default_qos" override:"default_qos"`
 }
 
 // Broker formats the configured Host and Port as tcp://host:port, suitable for
@@ -29,8 +32,14 @@ func NewConfig() Config {
 }
 
 func (c Config) Validate() error {
-	if c.Enabled && (c.Host == "" || c.Port == 0) {
-		return errors.New("must specify host and port for mqtt service")
+	if c.Enabled {
+		if c.Host == "" || c.Port == 0 {
+			return errors.New("must specify host and port for mqtt service")
+		}
+
+		if c.DefaultTopic == "" {
+			return errors.New("must specify default MQTT topic")
+		}
 	}
 	return nil
 }
