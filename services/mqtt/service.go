@@ -10,15 +10,17 @@ import (
 	"github.com/influxdata/kapacitor/alert"
 )
 
-type QOSLevel byte
+// QoSLevel indicates the quality of service for messages delivered to a
+// broker.
+type QoSLevel byte
 
 const (
 	// best effort delivery. "fire and forget"
-	ATMOSTONCE QOSLevel = iota
+	AtMostOnce QoSLevel = iota
 	// guarantees delivery to at least one receiver. May deliver multiple times.
-	ATLEASTONCE
+	AtLeastOnce
 	// guarantees delivery only once. Safest and slowest.
-	EXACTLYONCE
+	ExactlyOnce
 )
 
 // DEFAULT_QUIESCE_TIMEOUT is the duration the client will wait for outstanding
@@ -77,7 +79,7 @@ func (s *Service) Close() error {
 	return nil
 }
 
-func (s *Service) Alert(qos QOSLevel, topic, message string) error {
+func (s *Service) Alert(qos QoSLevel, topic, message string) error {
 	s.client.Publish(topic, byte(qos), false, message) // should retained be configureable?
 	return nil
 }
@@ -104,7 +106,7 @@ func (s *Service) Handler(c HandlerConfig, l *log.Logger) alert.Handler {
 
 type HandlerConfig struct {
 	Topic string
-	QOS   QOSLevel
+	QoS   QoSLevel
 }
 
 type handler struct {
@@ -114,7 +116,7 @@ type handler struct {
 }
 
 func (h *handler) Handle(event alert.Event) {
-	if err := h.s.Alert(h.c.QOS, h.c.Topic, event.State.Message); err != nil {
+	if err := h.s.Alert(h.c.QoS, h.c.Topic, event.State.Message); err != nil {
 		h.logger.Println("E! failed to post message to MQTT broker", err)
 	}
 }
@@ -123,21 +125,21 @@ func (s *Service) DefaultHandlerConfig() HandlerConfig {
 	c := s.config()
 	return HandlerConfig{
 		Topic: c.DefaultTopic,
-		QOS:   c.DefaultQOS,
+		QoS:   c.DefaultQoS,
 	}
 }
 
 type testOptions struct {
 	Topic   string   `json:"topic"`
 	Message string   `json:"message"`
-	QOS     QOSLevel `json:"qos"`
+	QoS     QoSLevel `json:"qos"`
 }
 
 func (s *Service) TestOptions() interface{} {
 	c := s.config()
 	return &testOptions{
 		Topic:   c.DefaultTopic,
-		QOS:     c.DefaultQOS,
+		QoS:     c.DefaultQoS,
 		Message: "test MQTT message",
 	}
 }
@@ -147,5 +149,5 @@ func (s *Service) Test(o interface{}) error {
 	if !ok {
 		return fmt.Errorf("unexpected options type %T", options)
 	}
-	return s.Alert(options.QOS, options.Topic, options.Message)
+	return s.Alert(options.QoS, options.Topic, options.Message)
 }

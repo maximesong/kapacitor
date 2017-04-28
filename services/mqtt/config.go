@@ -18,7 +18,7 @@ type Config struct {
 	Password string `toml:"password" override:"password"`
 
 	DefaultTopic string   `toml:"default-topic" override:"default-topic"`
-	DefaultQOS   QOSLevel `toml:"default-qos" override:"default-qos"`
+	DefaultQoS   QoSLevel `toml:"default-qos" override:"default-qos"`
 }
 
 // Broker formats the configured Host and Port as tcp://host:port, suitable for
