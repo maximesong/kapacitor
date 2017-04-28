@@ -28,7 +28,7 @@ const (
 const DEFAULT_QUIESCE_TIMEOUT time.Duration = 250 * time.Millisecond
 
 type Service struct {
-	Logger *log.Logger
+	logger *log.Logger
 
 	configValue atomic.Value
 	client      pahomqtt.Client
@@ -37,7 +37,7 @@ type Service struct {
 
 func NewService(c Config, l *log.Logger) *Service {
 	s := &Service{
-		Logger: l,
+		logger: l,
 	}
 	s.configValue.Store(c)
 	return s
@@ -49,7 +49,7 @@ func (s *Service) config() Config {
 
 // TODO(timraymond): improve logging here and in Close
 func (s *Service) Open() error {
-	s.Logger.Println("I! Starting MQTT service")
+	s.logger.Println("I! Starting MQTT service")
 
 	c := s.config()
 	opts := pahomqtt.NewClientOptions()
@@ -65,17 +65,17 @@ func (s *Service) Open() error {
 	s.token.Wait()
 
 	if err := s.token.Error(); err != nil {
-		s.Logger.Println("E! Error connecting to MQTT broker at", c.Broker(), "err:", err) //TODO(timraymond): put a legit error in
+		s.logger.Println("E! Error connecting to MQTT broker at", c.Broker(), "err:", err) //TODO(timraymond): put a legit error in
 		return err
 	}
-	s.Logger.Println("I! Connected to MQTT Broker at", c.Broker())
+	s.logger.Println("I! Connected to MQTT Broker at", c.Broker())
 	return nil
 
 }
 
 func (s *Service) Close() error {
 	s.client.Disconnect(uint(DEFAULT_QUIESCE_TIMEOUT / time.Millisecond))
-	s.Logger.Println("I! MQTT Client Disconnected")
+	s.logger.Println("I! MQTT Client Disconnected")
 	return nil
 }
 
