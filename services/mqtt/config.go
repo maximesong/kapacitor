@@ -2,7 +2,9 @@ package mqtt
 
 import (
 	"errors"
-	"fmt"
+	"net"
+	"net/url"
+	"strconv"
 )
 
 type Config struct {
@@ -24,7 +26,12 @@ type Config struct {
 // Broker formats the configured Host and Port as tcp://host:port, suitable for
 // consumption by the Paho MQTT Client
 func (c Config) Broker() string {
-	return fmt.Sprintf("tcp://%s:%d", c.Host, c.Port)
+	portStr := strconv.FormatUint(uint64(c.Port), 10)
+	u := &url.URL{
+		Scheme: "tcp",
+		Host:   net.JoinHostPort(c.Host, portStr),
+	}
+	return u.String()
 }
 
 func NewConfig() Config {
