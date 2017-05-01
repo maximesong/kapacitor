@@ -47,35 +47,16 @@ func (s *Service) config() Config {
 	return s.configValue.Load().(Config)
 }
 
-// TODO(timraymond): improve logging here and in Close
 func (s *Service) Open() error {
 	s.logger.Println("I! Starting MQTT service")
-
-	c := s.config()
-	opts := pahomqtt.NewClientOptions()
-	opts.AddBroker(c.Broker())
-	opts.SetClientID(c.ClientID) // TODO(timraymond): should we provide a random one?
-	opts.SetUsername(c.Username)
-	opts.SetPassword(c.Password)
-	opts.SetCleanSession(false) // wtf is this? Why does it default to false?
-
-	s.client = pahomqtt.NewClient(opts)
-	s.token = s.client.Connect()
-
-	s.token.Wait()
-
-	if err := s.token.Error(); err != nil {
-		s.logger.Println("E! Error connecting to MQTT broker at", c.Broker(), "err:", err) //TODO(timraymond): put a legit error in
-		return err
-	}
-	s.logger.Println("I! Connected to MQTT Broker at", c.Broker())
+	s.runClient()
 	return nil
 
 }
 
 func (s *Service) Close() error {
-	s.client.Disconnect(uint(DEFAULT_QUIESCE_TIMEOUT / time.Millisecond))
-	s.logger.Println("I! MQTT Client Disconnected")
+	s.logger.Println("I! Stopping MQTT service")
+	s.stopClient()
 	return nil
 }
 
@@ -92,6 +73,9 @@ func (s *Service) Update(newConfig []interface{}) error {
 		return fmt.Errorf("expected config object to be of type %T, got %T", c, newConfig[0])
 	} else {
 		s.configValue.Store(c)
+		if err := s.reloadClient(); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -127,6 +111,46 @@ func (s *Service) DefaultHandlerConfig() HandlerConfig {
 		Topic: c.DefaultTopic,
 		QoS:   c.DefaultQoS,
 	}
+}
+
+func (s *Service) reloadClient() error {
+	if err := s.stopClient(); err != nil {
+		return err
+	}
+	if err := s.runClient(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *Service) runClient() error {
+	c := s.config()
+	opts := pahomqtt.NewClientOptions()
+	opts.AddBroker(c.Broker())
+	opts.SetClientID(c.ClientID)
+	opts.SetUsername(c.Username)
+	opts.SetPassword(c.Password)
+	opts.SetCleanSession(false)
+
+	s.client = pahomqtt.NewClient(opts)
+	s.token = s.client.Connect()
+
+	s.token.Wait()
+
+	if err := s.token.Error(); err != nil {
+		s.logger.Println("E! Error connecting to MQTT broker at", c.Broker(), "err:", err)
+		return err
+	}
+	s.logger.Println("I! Connected to MQTT Broker at", c.Broker())
+	return nil
+}
+
+func (s *Service) stopClient() error {
+	if s.client != nil {
+		s.client.Disconnect(uint(DefaultQuiesceTimeout / time.Millisecond))
+	}
+	s.logger.Println("I! MQTT Client Disconnected")
+	return nil
 }
 
 type testOptions struct {
