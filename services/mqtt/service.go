@@ -23,9 +23,9 @@ const (
 	ExactlyOnce
 )
 
-// DEFAULT_QUIESCE_TIMEOUT is the duration the client will wait for outstanding
+// DefaultQuiesceTimeout is the duration the client will wait for outstanding
 // messages to be published before forcing a disconnection
-const DEFAULT_QUIESCE_TIMEOUT time.Duration = 250 * time.Millisecond
+const DefaultQuiesceTimeout time.Duration = 250 * time.Millisecond
 
 type Service struct {
 	logger *log.Logger
