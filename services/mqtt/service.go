@@ -132,7 +132,13 @@ func (s *Service) runClient() error {
 	opts.SetClientID(c.ClientID)
 	opts.SetUsername(c.Username)
 	opts.SetPassword(c.Password)
-	opts.SetCleanSession(false)
+
+	// Using a clean session forces the broker to dispose of client session
+	// information after disconnecting. Retention of this is useful for
+	// constrained clients.  Since Kapacitor is only publishing, it has no
+	// storage requirements and can reduce load on the broker by using a clean
+	// session.
+	opts.SetCleanSession(true)
 
 	s.client = pahomqtt.NewClient(opts)
 	s.token = s.client.Connect()
