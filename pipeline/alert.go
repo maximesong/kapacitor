@@ -354,7 +354,7 @@ type AlertNode struct {
 
 	// Send alert to MQTT
 	// tick:ignore
-	MQTTHandlers []*MQTTHandler `tick:"MQTT"`
+	MQTTHandlers []*MQTTHandler `tick:"Mqtt"`
 
 	// Send alert using SNMPtraps.
 	// tick:ignore
@@ -1021,6 +1021,13 @@ type MQTTHandler struct {
 
 	// The topic where alerts will be dispatched to
 	Topic string
+
+	// The QoS that will be used to deliver the alerts
+	QoS int64
+
+	// Retained indicates whether this alert should be delivered to
+	// clients that were not connected to the broker at the time of the alert
+	Retained bool
 }
 
 // Send the alert to Sensu.

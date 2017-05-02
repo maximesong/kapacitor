@@ -60,8 +60,8 @@ func (s *Service) Close() error {
 	return nil
 }
 
-func (s *Service) Alert(qos QoSLevel, topic, message string) error {
-	s.client.Publish(topic, byte(qos), false, message) // should retained be configureable?
+func (s *Service) Alert(qos QoSLevel, retained bool, topic, message string) error {
+	s.client.Publish(topic, byte(qos), retained, message)
 	return nil
 }
 
@@ -89,8 +89,9 @@ func (s *Service) Handler(c HandlerConfig, l *log.Logger) alert.Handler {
 }
 
 type HandlerConfig struct {
-	Topic string
-	QoS   QoSLevel
+	Topic    string
+	QoS      QoSLevel
+	Retained bool
 }
 
 type handler struct {
@@ -100,7 +101,7 @@ type handler struct {
 }
 
 func (h *handler) Handle(event alert.Event) {
-	if err := h.s.Alert(h.c.QoS, h.c.Topic, event.State.Message); err != nil {
+	if err := h.s.Alert(h.c.QoS, h.c.Retained, h.c.Topic, event.State.Message); err != nil {
 		h.logger.Println("E! failed to post message to MQTT broker", err)
 	}
 }
@@ -108,8 +109,9 @@ func (h *handler) Handle(event alert.Event) {
 func (s *Service) DefaultHandlerConfig() HandlerConfig {
 	c := s.config()
 	return HandlerConfig{
-		Topic: c.DefaultTopic,
-		QoS:   c.DefaultQoS,
+		Topic:    c.DefaultTopic,
+		QoS:      c.DefaultQoS,
+		Retained: c.DefaultRetained,
 	}
 }
 
@@ -154,9 +156,10 @@ func (s *Service) stopClient() error {
 }
 
 type testOptions struct {
-	Topic   string   `json:"topic"`
-	Message string   `json:"message"`
-	QoS     QoSLevel `json:"qos"`
+	Topic    string   `json:"topic"`
+	Message  string   `json:"message"`
+	QoS      QoSLevel `json:"qos"`
+	Retained bool     `json:"retained"`
 }
 
 func (s *Service) TestOptions() interface{} {
@@ -173,5 +176,5 @@ func (s *Service) Test(o interface{}) error {
 	if !ok {
 		return fmt.Errorf("unexpected options type %T", options)
 	}
-	return s.Alert(options.QoS, options.Topic, options.Message)
+	return s.Alert(options.QoS, options.Retained, options.Topic, options.Message)
 }
