@@ -1,6 +1,7 @@
 package mqtt
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"sync"
@@ -12,6 +13,37 @@ import (
 // QoSLevel indicates the quality of service for messages delivered to a
 // broker.
 type QoSLevel byte
+
+var (
+	ErrInvalidQoS = errors.New("invalid QoS specified. Valid options are \"AtMostOnce\", \"AtLeastOnce\", \"ExactlyOnce\"")
+)
+
+func (q *QoSLevel) UnmarshalText(text []byte) error {
+	switch string(text) {
+	case "AtMostOnce":
+		*q = AtMostOnce
+	case "AtLeastOnce":
+		*q = AtLeastOnce
+	case "ExactlyOnce":
+		*q = ExactlyOnce
+	default:
+		return ErrInvalidQoS
+	}
+	return nil
+}
+
+func (q *QoSLevel) MarshalText() (text []byte, err error) {
+	switch *q {
+	case AtMostOnce:
+		return []byte("AtMostOnce"), nil
+	case AtLeastOnce:
+		return []byte("AtLeastOnce"), nil
+	case ExactlyOnce:
+		return []byte("ExactlyOnce"), nil
+	default:
+		return []byte{}, ErrInvalidQoS
+	}
+}
 
 const (
 	// best effort delivery. "fire and forget"

@@ -7256,7 +7256,7 @@ func TestServer_ListServiceTests(t *testing.T) {
 				Options: client.ServiceTestOptions{
 					"topic":    "",
 					"message":  "test MQTT message",
-					"qos":      float64(0),
+					"qos":      "AtMostOnce",
 					"retained": false,
 				},
 			},
