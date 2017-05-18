@@ -3,10 +3,9 @@ package mqtt
 import (
 	"fmt"
 	"log"
+	"sync"
 	"sync/atomic"
-	"time"
 
-	pahomqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/influxdata/kapacitor/alert"
 )
 
@@ -23,23 +22,24 @@ const (
 	ExactlyOnce
 )
 
-// DefaultQuiesceTimeout is the duration the client will wait for outstanding
-// messages to be published before forcing a disconnection
-const DefaultQuiesceTimeout time.Duration = 250 * time.Millisecond
-
 type Service struct {
 	logger *log.Logger
 
 	configValue atomic.Value
-	client      pahomqtt.Client
-	token       pahomqtt.Token
+
+	mu     sync.RWMutex
+	client Client
 }
 
 func NewService(c Config, l *log.Logger) *Service {
 	s := &Service{
 		logger: l,
 	}
+
+	cl := NewClient(c)
+
 	s.configValue.Store(c)
+	s.client = cl
 	return s
 }
 
@@ -48,21 +48,24 @@ func (s *Service) config() Config {
 }
 
 func (s *Service) Open() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.logger.Println("I! Starting MQTT service")
-	s.runClient()
-	return nil
-
+	return s.client.Connect()
 }
 
 func (s *Service) Close() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.logger.Println("I! Stopping MQTT service")
-	s.stopClient()
+	s.client.Disconnect()
 	return nil
 }
 
 func (s *Service) Alert(qos QoSLevel, retained bool, topic, message string) error {
-	s.client.Publish(topic, byte(qos), retained, message)
-	return nil
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.client.Publish(topic, byte(qos), retained, message)
 }
 
 func (s *Service) Update(newConfig []interface{}) error {
@@ -73,9 +76,21 @@ func (s *Service) Update(newConfig []interface{}) error {
 		return fmt.Errorf("expected config object to be of type %T, got %T", c, newConfig[0])
 	} else {
 		s.configValue.Store(c)
-		if err := s.reloadClient(); err != nil {
-			return err
-		}
+
+		go func() {
+			// lock out concurrent publishers
+			s.mu.Lock()
+			defer s.mu.Unlock()
+
+			c := s.config()
+			s.client.Disconnect()
+			cl := NewClient(c)
+			if err := cl.Connect(); err != nil {
+				s.logger.Println("E! Error updating MQTT config. Using previous configuration: err:", err)
+				return
+			}
+			s.client = cl
+		}()
 	}
 	return nil
 }
@@ -113,52 +128,6 @@ func (s *Service) DefaultHandlerConfig() HandlerConfig {
 		QoS:      c.DefaultQoS,
 		Retained: c.DefaultRetained,
 	}
-}
-
-func (s *Service) reloadClient() error {
-	if err := s.stopClient(); err != nil {
-		return err
-	}
-	if err := s.runClient(); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (s *Service) runClient() error {
-	c := s.config()
-	opts := pahomqtt.NewClientOptions()
-	opts.AddBroker(c.Broker())
-	opts.SetClientID(c.ClientID)
-	opts.SetUsername(c.Username)
-	opts.SetPassword(c.Password)
-
-	// Using a clean session forces the broker to dispose of client session
-	// information after disconnecting. Retention of this is useful for
-	// constrained clients.  Since Kapacitor is only publishing, it has no
-	// storage requirements and can reduce load on the broker by using a clean
-	// session.
-	opts.SetCleanSession(true)
-
-	s.client = pahomqtt.NewClient(opts)
-	s.token = s.client.Connect()
-
-	s.token.Wait()
-
-	if err := s.token.Error(); err != nil {
-		s.logger.Println("E! Error connecting to MQTT broker at", c.Broker(), "err:", err)
-		return err
-	}
-	s.logger.Println("I! Connected to MQTT Broker at", c.Broker())
-	return nil
-}
-
-func (s *Service) stopClient() error {
-	if s.client != nil {
-		s.client.Disconnect(uint(DefaultQuiesceTimeout / time.Millisecond))
-	}
-	s.logger.Println("I! MQTT Client Disconnected")
-	return nil
 }
 
 type testOptions struct {
