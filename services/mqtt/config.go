@@ -17,7 +17,7 @@ type Config struct {
 
 	ClientID string `toml:"client-id" override:"client-id"`
 	Username string `toml:"username" override:"username"`
-	Password string `toml:"password" override:"password"`
+	Password string `toml:"password" override:"password,redact"`
 
 	DefaultTopic    string   `toml:"default-topic" override:"default-topic"`
 	DefaultQoS      QoSLevel `toml:"default-qos" override:"default-qos"`
