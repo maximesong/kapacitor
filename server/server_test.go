@@ -7244,13 +7244,6 @@ func TestServer_ListServiceTests(t *testing.T) {
 				},
 			},
 			{
-				Link: client.Link{Relation: "self", Href: "/kapacitor/v1/service-tests/nerve"},
-				Name: "nerve",
-				Options: client.ServiceTestOptions{
-					"id": "",
-				},
-			},
-			{
 				Link: client.Link{Relation: client.Self, Href: "/kapacitor/v1/service-tests/mqtt"},
 				Name: "mqtt",
 				Options: client.ServiceTestOptions{
@@ -7258,6 +7251,13 @@ func TestServer_ListServiceTests(t *testing.T) {
 					"message":  "test MQTT message",
 					"qos":      "AtMostOnce",
 					"retained": false,
+				},
+			},
+			{
+				Link: client.Link{Relation: "self", Href: "/kapacitor/v1/service-tests/nerve"},
+				Name: "nerve",
+				Options: client.ServiceTestOptions{
+					"id": "",
 				},
 			},
 			{
