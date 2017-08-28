@@ -996,6 +996,10 @@ type AlertaHandler struct {
 	// List of effected Services
 	// tick:ignore
 	Service []string `tick:"Services"`
+
+	// List of tags
+	// tick:ignore
+	Tag []string `tick:"Tags"`
 }
 
 // List of effected services.
@@ -1003,6 +1007,13 @@ type AlertaHandler struct {
 // tick:property
 func (a *AlertaHandler) Services(service ...string) *AlertaHandler {
 	a.Service = service
+	return a
+}
+
+// List of effected tags.
+// tick:property
+func (a *AlertaHandler) Tags(tag ...string) *AlertaHandler {
+	a.Tag = tag
 	return a
 }
 

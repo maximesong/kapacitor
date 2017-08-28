@@ -90,6 +90,7 @@ func (s *Service) Test(options interface{}) error {
 		o.Message,
 		o.Origin,
 		o.Service,
+		[]string{}, // tag
 		models.Result{},
 	)
 }
@@ -125,12 +126,12 @@ func (s *Service) Update(newConfig []interface{}) error {
 	return nil
 }
 
-func (s *Service) Alert(token, tokenPrefix, resource, event, environment, severity, group, value, message, origin string, service []string, data models.Result) error {
+func (s *Service) Alert(token, tokenPrefix, resource, event, environment, severity, group, value, message, origin string, service []string, tags []string, data models.Result) error {
 	if resource == "" || event == "" {
 		return errors.New("Resource and Event are required to send an alert")
 	}
 
-	req, err := s.preparePost(token, tokenPrefix, resource, event, environment, severity, group, value, message, origin, service, data)
+	req, err := s.preparePost(token, tokenPrefix, resource, event, environment, severity, group, value, message, origin, service, tags, data)
 	if err != nil {
 		return err
 	}
@@ -158,7 +159,7 @@ func (s *Service) Alert(token, tokenPrefix, resource, event, environment, severi
 	return nil
 }
 
-func (s *Service) preparePost(token, tokenPrefix, resource, event, environment, severity, group, value, message, origin string, service []string, data models.Result) (*http.Request, error) {
+func (s *Service) preparePost(token, tokenPrefix, resource, event, environment, severity, group, value, message, origin string, service []string, tags []string, data models.Result) (*http.Request, error) {
 	c := s.config()
 
 	if !c.Enabled {
@@ -203,6 +204,9 @@ func (s *Service) preparePost(token, tokenPrefix, resource, event, environment, 
 	postData["rawData"] = data
 	if len(service) > 0 {
 		postData["service"] = service
+	}
+	if len(tags) > 0 {
+		postData["tags"] = tags
 	}
 
 	var post bytes.Buffer
@@ -262,6 +266,9 @@ type HandlerConfig struct {
 
 	// List of effected Services
 	Service []string `mapstructure:"service"`
+
+	// List of tags
+	Tag []string `mapstructure:"tag"`
 }
 
 type handler struct {
@@ -388,6 +395,8 @@ func (h *handler) Handle(event alert.Event) {
 		service = []string{td.Name}
 	}
 
+	tags := h.c.Tag
+
 	var severity string
 
 	switch event.State.Level {
@@ -415,6 +424,7 @@ func (h *handler) Handle(event alert.Event) {
 		event.State.Message,
 		h.c.Origin,
 		service,
+		tags,
 		event.Data.Result,
 	); err != nil {
 		h.logger.Printf("E! failed to send event to Alerta: %v", err)
