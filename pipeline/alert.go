@@ -1000,6 +1000,9 @@ type AlertaHandler struct {
 	// List of tags
 	// tick:ignore
 	Tag []string `tick:"Tags"`
+
+	// tick:ignore
+	Attributes map[string]string `tick:"Attribute"`
 }
 
 // List of effected services.
@@ -1014,6 +1017,16 @@ func (a *AlertaHandler) Services(service ...string) *AlertaHandler {
 // tick:property
 func (a *AlertaHandler) Tags(tag ...string) *AlertaHandler {
 	a.Tag = tag
+	return a
+}
+
+// tick:property
+func (a *AlertaHandler) Attribute(k string, v string) *AlertaHandler {
+	if a.Attributes == nil {
+		a.Attributes = map[string]string{}
+	}
+
+	a.Attributes[k] = v
 	return a
 }
 

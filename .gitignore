@@ -21,3 +21,6 @@ kapacitor*.zip
 /kapacitord
 /tickfmt
 /tickdoc
+
+# test script
+define.sh

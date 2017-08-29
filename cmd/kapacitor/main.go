@@ -2149,7 +2149,7 @@ func versionUsage() {
 }
 
 func doVersion(args []string) error {
-	fmt.Fprintf(os.Stdout, "Kapacitor %s (git: %s %s)\n", version, branch, commit)
+	fmt.Fprintf(os.Stdout, "Kapacitor(musical.ly revised edition) %s (git: %s %s)\n", version, branch, commit)
 	return nil
 }
 
