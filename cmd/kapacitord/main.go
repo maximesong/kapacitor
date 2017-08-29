@@ -183,7 +183,7 @@ func (cmd *VersionCommand) Run(args ...string) error {
 	}
 
 	// Print version info.
-	fmt.Fprintf(cmd.Stdout, "Kapacitor %s (git: %s %s)\n", version, branch, commit)
+	fmt.Fprintf(cmd.Stdout, "Kapacitor(musical.ly revised edition) %s (git: %s %s)\n", version, branch, commit)
 
 	return nil
 }
