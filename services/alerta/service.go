@@ -290,6 +290,9 @@ type handler struct {
 	environmentTmpl *text.Template
 	valueTmpl       *text.Template
 	groupTmpl       *text.Template
+
+	tagTmpls       []*text.Template
+	attributeTmpls map[string]*text.Template
 }
 
 func (s *Service) DefaultHandlerConfig() HandlerConfig {
@@ -322,6 +325,25 @@ func (s *Service) Handler(c HandlerConfig, l *log.Logger) (alert.Handler, error)
 	if err != nil {
 		return nil, err
 	}
+
+	tagTmpls := make([]*text.Template, len(c.Tag))
+	for i, t := range c.Tag {
+		var tagTmpl *text.Template
+		if tagTmpl, err = text.New("tag").Parse(t); err != nil {
+			return nil, err
+		}
+		tagTmpls[i] = tagTmpl
+	}
+
+	attrTmpls := map[string]*text.Template{}
+	for attr, t := range c.Attributes {
+		var attrTmpl *text.Template
+		if attrTmpl, err = text.New("attr").Parse(t); err != nil {
+			return nil, err
+		}
+		attrTmpls[attr] = attrTmpl
+	}
+
 	return &handler{
 		s:               s,
 		c:               c,
@@ -331,6 +353,8 @@ func (s *Service) Handler(c HandlerConfig, l *log.Logger) (alert.Handler, error)
 		environmentTmpl: etmpl,
 		groupTmpl:       gtmpl,
 		valueTmpl:       vtmpl,
+		tagTmpls:        tagTmpls,
+		attributeTmpls:  attrTmpls,
 	}, nil
 }
 
@@ -404,7 +428,27 @@ func (h *handler) Handle(event alert.Event) {
 		service = []string{td.Name}
 	}
 
-	tags := h.c.Tag
+	tags := make([]string, len(h.tagTmpls))
+	for i, tmpl := range h.tagTmpls {
+		err = tmpl.Execute(&buf, td)
+		if err != nil {
+			h.logger.Printf("E! failed to evaluate Alerta tag template %s: %v", h.c.Tag[i], err)
+			return
+		}
+		tags[i] = buf.String()
+		buf.Reset()
+	}
+
+	attributes := make(map[string]string)
+	for attr, tmpl := range h.attributeTmpls {
+		err = tmpl.Execute(&buf, td)
+		if err != nil {
+			h.logger.Printf("E! failed to evaluate Alerta attribute template %s: %v", h.c.Attributes[attr], err)
+			return
+		}
+		attributes[attr] = buf.String()
+		buf.Reset()
+	}
 
 	var severity string
 
@@ -434,7 +478,7 @@ func (h *handler) Handle(event alert.Event) {
 		h.c.Origin,
 		service,
 		tags,
-		h.c.Attributes,
+		attributes,
 		event.Data.Result,
 	); err != nil {
 		h.logger.Printf("E! failed to send event to Alerta: %v", err)
