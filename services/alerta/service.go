@@ -422,6 +422,7 @@ func (h *handler) Handle(event alert.Event) {
 		return
 	}
 	value := buf.String()
+	buf.Reset()
 
 	service := h.c.Service
 	if len(service) == 0 {
